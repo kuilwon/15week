@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Inner Side</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      transition: background-color 0.2s;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      position: relative;
+    }
+    #text1 {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-weight: 400;
+      font-size: 14pt;
+      line-height: 20pt;
+      color: black;
+      text-align: left;
+      width: 80vw;
+      margin-top: 20px;
+    }
+    #scrollText {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-weight: 400;
+      font-size: 14pt;
+      line-height: 20pt;
+      color: white;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      z-index: 200;
+      opacity: 1;
+      transition: opacity 1s;
+    }
+    #webcam {
+      display: block;
+      margin: auto;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100;
+    }
+    
+    #scrollHandle {
+      z-index: 20;
+      width: 2vh;
+      height: 2vh;
+      background: black;
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      border-radius: 50%;
+      transition: background-color 0.2s;
+    }
+    #captureButton {
+      width: 50px;
+      height: 50px;
+      background: red;
+      border-radius: 50%;
+      cursor: pointer;
+      display: block;
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 150;
+      border: none;
+    }
+    #snapshot {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+    }
+    #uploadButton {
+      display: none;
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: black;
+      border-radius: 12px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      z-index: 150;
+    }
+    #uploadButtonText {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-weight: 400;
+      font-size: 14pt;
+      color: white;
+      transition: color 0.2s;
+    }
+  </style>
+</head>
+<body>
+  <div id="text1">How much do you understand yourself? How much chaos is going on inside you? Maybe there's constant chaos going on. Scroll through to understand yourself. The confusion of the chaos you feel, stop there. The more calm, the more complicated, the more chaotic. And film it. Compare yourself when there's no chaos in you, and how you are when there's chaos. You understand and grow inside yourself when you record and feel the difference.</div>
+
+  <div id="scrollText">Scroll</div>
+
+  <video id="webcam" autoplay></video>
+
+  <div id="scrollHandle"></div>
+
+  <div id="captureButton"></div>
+
+  <img id="snapshot" alt="Snapshot">
+
+  <div id="uploadButton"><span id="uploadButtonText">Upload</span></div>
+
+  <script>
+    // Step 1: Access webcam and apply to video element
+    const webcam = document.getElementById("webcam");
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        webcam.srcObject = stream;
+      })
+      .catch((error) => {
+        console.error("Webcam access denied", error);
+      });
+
+    // Step 2: Add wheel event listener to handle background, text color changes, and snapshot distortion
+    let scrollAmount = 0;
+    let originalSnapshotDataUrl = null; // Store the original snapshot image
+    let isImageLoaded = false; // Track if the image has been loaded
+    let isSnapshotTaken = false; // Track if the snapshot has been taken
+
+    const scrollText = document.getElementById("scrollText");
+
+    window.addEventListener("wheel", (e) => {
+      if (!isSnapshotTaken) return; // Only allow scrolling if snapshot has been taken
+
+      if (scrollText.style.opacity > 0) {
+        scrollText.style.opacity = parseFloat(scrollText.style.opacity) - 0.1;
+      } else {
+        scrollText.style.display = "none";
+      }
+
+      scrollAmount += e.deltaY * 0.005;
+      scrollAmount = Math.max(0, Math.min(scrollAmount, 1));
+
+      // Background color transition (white to black)
+      const colorValue = 255 - Math.round(scrollAmount * 255);
+      document.body.style.backgroundColor = `rgb(${colorValue}, ${colorValue}, ${colorValue})`;
+
+      // Text color inversion logic
+      const textColor = colorValue > 128 ? "black" : "white";
+      document.getElementById("text1").style.color = textColor;
+
+      // Update scroll handle position and color
+      const scrollHandle = document.getElementById("scrollHandle");
+      scrollHandle.style.left = `${Math.min(scrollAmount * 100, 98)}%`;
+      scrollHandle.style.backgroundColor = textColor;
+
+      // Update upload button color
+      const uploadButton = document.getElementById("uploadButton");
+      const uploadButtonText = document.getElementById("uploadButtonText");
+      if (isSnapshotTaken) {
+        uploadButton.style.backgroundColor = document.body.style.backgroundColor === 'rgb(0, 0, 0)' ? 'white' : 'black';
+        uploadButtonText.style.color = document.body.style.backgroundColor === 'rgb(0, 0, 0)' ? 'black' : 'white';
+      }
+
+      // Apply glitch-like distortion to the snapshot based on scroll position
+      const snapshot = document.getElementById("snapshot");
+      if (snapshot.style.display === 'block' && originalSnapshotDataUrl && isImageLoaded) {
+        // Apply glitch distortion by manipulating small horizontal slices
+        const img = new Image();
+        img.src = originalSnapshotDataUrl;
+        img.onload = () => {
+          const width = img.width;
+          const height = img.height;
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          canvas.width = width;
+          canvas.height = height;
+          context.drawImage(img, 0, 0, width, height);
+
+          // Introduce glitch effect by randomly shifting sections horizontally and vertically
+          const sliceHeight = Math.max(1, Math.round(height * 0.05));
+          for (let y = 0; y < height; y += sliceHeight) {
+            const dx = (Math.random() - 0.5) * scrollAmount * 100; // Horizontal displacement based on scrollAmount
+            const dy = (Math.random() - 0.5) * scrollAmount * 20;  // Vertical displacement for added randomness
+            context.drawImage(canvas, 0, y, width, sliceHeight, dx, y + dy, width, sliceHeight);
+          }
+
+          // Use requestAnimationFrame to ensure image update is rendered properly
+          requestAnimationFrame(() => {
+            try {
+              const distortedImageDataUrl = canvas.toDataURL("image/png");
+              snapshot.src = distortedImageDataUrl;
+            } catch (error) {
+              console.error("Error updating snapshot image", error);
+            }
+          });
+        };
+      }
+    });
+
+    // Step 3: Add event listener for capture button to take a snapshot
+    const captureButton = document.getElementById("captureButton");
+    const uploadButton = document.getElementById("uploadButton");
+    const snapshot = document.getElementById("snapshot");
+
+    captureButton.addEventListener("click", () => {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      canvas.width = webcam.videoWidth;
+      canvas.height = webcam.videoHeight;
+
+      // Draw the current webcam frame onto the canvas
+      context.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+
+      // Convert canvas to an image (or data URL)
+      originalSnapshotDataUrl = canvas.toDataURL("image/png");
+
+      // Display the snapshot in an img element
+      snapshot.src = originalSnapshotDataUrl;
+      snapshot.style.display = 'block';
+      isImageLoaded = true;
+      isSnapshotTaken = true;
+
+      // Show scroll text
+      scrollText.style.display = "block";
+      scrollText.style.opacity = "1";
+
+      // Hide webcam view after taking snapshot
+      webcam.style.display = 'none';
+
+      // Show upload button
+      uploadButton.style.display = 'block';
+    });
+
+    // Add event listener for upload button functionality
+    uploadButton.addEventListener("click", () => {
+      if (isSnapshotTaken) {
+        // Create a new image element for the distorted image
+        const newImage = document.createElement("img");
+        newImage.src = snapshot.src;
+        newImage.style.position = "absolute";
+        newImage.style.width = "10%";
+        newImage.style.zIndex = "300"; // Ensure images are on top layer
+        newImage.style.left = `${Math.random() * 80 + 10}%`;
+        newImage.style.top = `${Math.random() * 80 + 10}%`;
+        document.body.appendChild(newImage);
+
+        // Add interaction for image movement
+        let dx = Math.random() < 0.5 ? 1 : -1; // Random initial direction for x-axis
+        let dy = Math.random() < 0.5 ? 1 : -1; // Random initial direction for y-axis
+
+        function moveImage() {
+          const rect = newImage.getBoundingClientRect();
+
+          // Change direction if hitting a wall
+          if (rect.left <= 0 || rect.right >= window.innerWidth) {
+            dx *= -1;
+          }
+          if (rect.top <= 0 || rect.bottom >= window.innerHeight) {
+            dy *= -1;
+          }
+
+          // Update position
+          newImage.style.left = `${rect.left + dx}px`;
+          newImage.style.top = `${rect.top + dy}px`;
+
+          requestAnimationFrame(moveImage);
+        }
+
+        requestAnimationFrame(moveImage);
+      }
+    });
+  </script>
+</body>
+</html>
